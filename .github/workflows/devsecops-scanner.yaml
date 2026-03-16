@@ -1,0 +1,263 @@
+name: DevSecOps Security Scanner Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      scan_target:
+        description: "Target URL to scan"
+        required: true
+        default: "https://www.surfatechintegratedsolutions.com"
+      enable_zap:
+        description: "Enable OWASP ZAP scan (true/false)"
+        required: false
+        default: "false"
+      threshold_critical:
+        description: "Max CRITICAL findings allowed"
+        required: false
+        default: "0"
+      threshold_high:
+        description: "Max HIGH findings allowed"
+        required: false
+        default: "2"
+      threshold_medium:
+        description: "Max MEDIUM findings allowed"
+        required: false
+        default: "10"
+
+env:
+  SCAN_TARGET: ${{ github.event.inputs.scan_target || 'https://www.surfatechintegratedsolutions.com' }}
+  ENABLE_ZAP: ${{ github.event.inputs.enable_zap || 'false' }}
+  THRESHOLD_CRITICAL: ${{ github.event.inputs.threshold_critical || '0' }}
+  THRESHOLD_HIGH: ${{ github.event.inputs.threshold_high || '2' }}
+  THRESHOLD_MEDIUM: ${{ github.event.inputs.threshold_medium || '10' }}
+  REPORT_DIR: "reports"
+
+jobs:
+
+  checkout-validate:
+    name: "Stage 1 — Checkout and Validate"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify repository structure
+        run: |
+          echo "======================================"
+          echo "  STAGE 1 - CHECKOUT AND VALIDATE"
+          echo "======================================"
+          echo "Repository structure:"
+          find . -maxdepth 3 -type f | sort
+          echo ""
+
+          if [ ! -f "scanner/main.py" ]; then
+            echo "ERROR: scanner/main.py not found"
+            exit 1
+          fi
+          if [ ! -f "requirements.txt" ]; then
+            echo "ERROR: requirements.txt not found"
+            exit 1
+          fi
+          if [ ! -f "Dockerfile" ]; then
+            echo "ERROR: Dockerfile not found"
+            exit 1
+          fi
+          if [ ! -f "harness-pipeline.yaml" ]; then
+            echo "WARNING: harness-pipeline.yaml not found"
+          fi
+
+          echo ""
+          echo "All required files found."
+          echo "Repository validation passed."
+
+  build-setup:
+    name: "Stage 2 — Build and Setup"
+    runs-on: ubuntu-latest
+    needs: checkout-validate
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Setup Python environment
+        run: |
+          echo "======================================"
+          echo "  STAGE 2 - BUILD AND SETUP"
+          echo "======================================"
+          python3 --version
+          pip3 --version
+          echo "Installing dependencies..."
+          pip3 install -r requirements.txt --quiet
+          echo "Dependencies installed successfully."
+
+      - name: Run unit tests
+        run: |
+          echo ""
+          echo "--- Running Unit Tests ---"
+          pip3 install pytest pytest-cov --quiet
+          python3 -m pytest tests/ -v --tb=short --cov=scanner --cov-report=term-missing
+        continue-on-error: true
+
+  security-scan:
+    name: "Stage 3 — Security Scan"
+    runs-on: ubuntu-latest
+    needs: build-setup
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          echo "======================================"
+          echo "  STAGE 3 - SECURITY SCAN"
+          echo "======================================"
+          sudo apt-get update -qq
+          sudo apt-get install -y nmap
+          pip3 install -r requirements.txt --quiet
+          echo "All dependencies installed."
+
+      - name: Execute security scanner
+        run: |
+          ZAP_FLAG=""
+          if [ "$ENABLE_ZAP" = "true" ]; then ZAP_FLAG="--zap"; fi
+
+          echo "Scanning target: $SCAN_TARGET"
+          echo ""
+
+          python3 scanner/main.py \
+            --target "$SCAN_TARGET" \
+            --out-dir "$REPORT_DIR" \
+            --threshold-critical "$THRESHOLD_CRITICAL" \
+            --threshold-high "$THRESHOLD_HIGH" \
+            --threshold-medium "$THRESHOLD_MEDIUM" \
+            --verbose \
+            $ZAP_FLAG || true
+
+      - name: Archive reports
+        run: |
+          if [ -d "$REPORT_DIR" ]; then
+            echo ""
+            echo "--- Generated Reports ---"
+            ls -lh "$REPORT_DIR"
+            echo ""
+            echo "--- JSON Summary (first 40 lines) ---"
+            cat "$REPORT_DIR/scan_report_latest.json" | python3 -m json.tool | head -40
+          else
+            echo "WARNING: Reports directory not found."
+          fi
+
+      - name: Upload scan reports as artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: security-scan-reports
+          path: |
+            reports/scan_report_latest.json
+            reports/scan_report_latest.html
+          retention-days: 30
+
+  security-gate:
+    name: "Stage 4 — Security Gate"
+    runs-on: ubuntu-latest
+    needs: security-scan
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          echo "======================================"
+          echo "  STAGE 4 - SECURITY GATE"
+          echo "======================================"
+          sudo apt-get update -qq
+          sudo apt-get install -y nmap
+          pip3 install -r requirements.txt --quiet
+
+      - name: Run scanner for gate evaluation
+        run: |
+          python3 scanner/main.py \
+            --target "$SCAN_TARGET" \
+            --out-dir "$REPORT_DIR" \
+            --threshold-critical "$THRESHOLD_CRITICAL" \
+            --threshold-high "$THRESHOLD_HIGH" \
+            --threshold-medium "$THRESHOLD_MEDIUM" \
+            --verbose || true
+
+      - name: Evaluate security gate
+        run: |
+          REPORT_FILE="${REPORT_DIR}/scan_report_latest.json"
+
+          if [ ! -f "$REPORT_FILE" ]; then
+            echo "ERROR: Report file missing: $REPORT_FILE"
+            exit 1
+          fi
+
+          CRITICAL=$(python3 -c "import json; d=json.load(open('$REPORT_FILE')); print(d['summary']['severity_counts']['CRITICAL'])")
+          HIGH=$(python3 -c "import json; d=json.load(open('$REPORT_FILE')); print(d['summary']['severity_counts']['HIGH'])")
+          MEDIUM=$(python3 -c "import json; d=json.load(open('$REPORT_FILE')); print(d['summary']['severity_counts']['MEDIUM'])")
+          LOW=$(python3 -c "import json; d=json.load(open('$REPORT_FILE')); print(d['summary']['severity_counts']['LOW'])")
+          RISK_SCORE=$(python3 -c "import json; d=json.load(open('$REPORT_FILE')); print(d['summary']['risk_score'])")
+          RISK_RATING=$(python3 -c "import json; d=json.load(open('$REPORT_FILE')); print(d['summary']['risk_rating'])")
+          PASSED=$(python3 -c "import json; d=json.load(open('$REPORT_FILE')); print(d['evaluation']['passed'])")
+
+          echo "============================================"
+          echo "  SECURITY GATE EVALUATION"
+          echo "============================================"
+          echo "  Target      : $SCAN_TARGET"
+          echo "  Risk Score  : $RISK_SCORE/100 ($RISK_RATING)"
+          echo "  Total       : $(python3 -c "import json; d=json.load(open('$REPORT_FILE')); print(d['summary']['total'])")"
+          echo "  Critical    : $CRITICAL  (max allowed: $THRESHOLD_CRITICAL)"
+          echo "  High        : $HIGH  (max allowed: $THRESHOLD_HIGH)"
+          echo "  Medium      : $MEDIUM"
+          echo "  Low         : $LOW"
+          echo "============================================"
+
+          GATE_PASSED=true
+
+          if [ "$CRITICAL" -gt "$THRESHOLD_CRITICAL" ]; then
+            echo "  FAIL: $CRITICAL CRITICAL findings — threshold is $THRESHOLD_CRITICAL (zero tolerance)"
+            GATE_PASSED=false
+          fi
+
+          if [ "$HIGH" -gt "$THRESHOLD_HIGH" ]; then
+            echo "  FAIL: $HIGH HIGH findings — threshold is $THRESHOLD_HIGH"
+            GATE_PASSED=false
+          fi
+
+          echo ""
+          if [ "$GATE_PASSED" = "false" ]; then
+            echo "SECURITY GATE FAILED — Deployment blocked!"
+            exit 1
+          fi
+
+          echo "SECURITY GATE PASSED — Deployment approved."
+          exit 0
+
+      - name: Upload gate report as artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gate-evaluation-report
+          path: reports/
+          retention-days: 30
