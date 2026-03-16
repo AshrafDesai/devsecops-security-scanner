@@ -1,8 +1,8 @@
 pipeline:
   name: DevSecOps Security Scanner Pipeline
   identifier: devsecops_scanner_pipeline
-  projectIdentifier: your_project_id
-  orgIdentifier: your_org_id
+  projectIdentifier: DevSecOps_Scanner
+  orgIdentifier: default
   description: Automated security scanning pipeline with deployment gate
   tags:
     security: devsecops
@@ -20,27 +20,27 @@ pipeline:
   variables:
     - name: SCAN_TARGET
       type: String
-      default: "https://your-staging-app.example.com"
+      value: "https://www.surfatechintegratedsolutions.com"
       description: "URL of application to scan"
     - name: ENABLE_ZAP
       type: String
-      default: "false"
+      value: "false"
       description: "Set to true to enable OWASP ZAP DAST scan"
     - name: THRESHOLD_CRITICAL
       type: Number
-      default: 0
+      value: 0
       description: "Max allowed CRITICAL findings before pipeline fails"
     - name: THRESHOLD_HIGH
       type: Number
-      default: 2
+      value: 2
       description: "Max allowed HIGH findings before pipeline fails"
     - name: THRESHOLD_MEDIUM
       type: Number
-      default: 10
+      value: 10
       description: "Max allowed MEDIUM findings (warning only)"
     - name: REPORT_DIR
       type: String
-      default: "reports"
+      value: "reports"
       description: "Directory to store scan reports"
 
   stages:
@@ -51,7 +51,7 @@ pipeline:
         spec:
           cloneCodebase: true
           platform:
-            os: Windows
+            os: Linux
             arch: Amd64
           runtime:
             type: Cloud
@@ -63,27 +63,28 @@ pipeline:
                   identifier: verify_structure
                   type: Run
                   spec:
-                    shell: Powershell
+                    shell: Bash
                     command: |
-                      Write-Host "Repository structure:"
-                      Get-ChildItem -Recurse -Depth 2
-                      if (-not (Test-Path "scanner\main.py")) {
-                        Write-Error "scanner\main.py not found"
+                      echo "Repository structure:"
+                      find . -maxdepth 3 -type f | sort
+                      if [ ! -f "scanner/main.py" ]; then
+                        echo "ERROR: scanner/main.py not found"
                         exit 1
-                      }
-                      if (-not (Test-Path "requirements.txt")) {
-                        Write-Error "requirements.txt not found"
+                      fi
+                      if [ ! -f "requirements.txt" ]; then
+                        echo "ERROR: requirements.txt not found"
                         exit 1
-                      }
-                      Write-Host "Repository validation passed."
+                      fi
+                      echo "Repository validation passed."
 
     - stage:
         name: Build and Setup
         identifier: build_setup
         type: CI
         spec:
+          cloneCodebase: true
           platform:
-            os: Windows
+            os: Linux
             arch: Amd64
           runtime:
             type: Cloud
@@ -95,72 +96,23 @@ pipeline:
                   identifier: setup_python
                   type: Run
                   spec:
-                    shell: Powershell
+                    shell: Bash
                     command: |
-                      python --version
-                      pip --version
-                      Write-Host "Installing dependencies..."
-                      pip install -r requirements.txt --quiet
-                      Write-Host "Dependencies installed successfully."
+                      python3 --version
+                      pip3 --version
+                      echo "Installing dependencies..."
+                      pip3 install -r requirements.txt --quiet
+                      echo "Dependencies installed successfully."
 
               - step:
                   name: Run Unit Tests
                   identifier: unit_tests
                   type: Run
                   spec:
-                    shell: Powershell
+                    shell: Bash
                     command: |
-                      pip install pytest pytest-cov --quiet
-                      python -m pytest tests/ -v --tb=short --cov=scanner --cov-report=term-missing
-                    failureStrategies:
-                      - onFailure:
-                          errors:
-                            - AllErrors
-                          action:
-                            type: Ignore
-
-    - stage:
-        name: Security Scan
-        identifier: security_scan
-        type: CI
-        spec:
-          platform:
-            os: Windows
-            arch: Amd64
-          runtime:
-            type: Cloud
-            spec: {}
-          execution:
-            steps:
-              - step:
-                  name: Execute Security Scanner
-                  identifier: execute_scanner
-                  type: Run
-                  spec:
-                    shell: Powershell
-                    envVariables:
-                      SCAN_TARGET:        <+pipeline.variables.SCAN_TARGET>
-                      ENABLE_ZAP:         <+pipeline.variables.ENABLE_ZAP>
-                      REPORT_DIR:         <+pipeline.variables.REPORT_DIR>
-                      THRESHOLD_CRITICAL: <+pipeline.variables.THRESHOLD_CRITICAL>
-                      THRESHOLD_HIGH:     <+pipeline.variables.THRESHOLD_HIGH>
-                      THRESHOLD_MEDIUM:   <+pipeline.variables.THRESHOLD_MEDIUM>
-                    command: |
-                      $zapFlag = ""
-                      if ($env:ENABLE_ZAP -eq "true") { $zapFlag = "--zap" }
-
-                      python scanner\main.py `
-                        --target            $env:SCAN_TARGET `
-                        --out-dir           $env:REPORT_DIR `
-                        --threshold-critical $env:THRESHOLD_CRITICAL `
-                        --threshold-high    $env:THRESHOLD_HIGH `
-                        --threshold-medium  $env:THRESHOLD_MEDIUM `
-                        --verbose `
-                        $zapFlag
-
-                      $exitCode = $LASTEXITCODE
-                      Write-Host "Scanner exit code: $exitCode"
-                      exit 0
+                      pip3 install pytest pytest-cov --quiet
+                      python3 -m pytest tests/ -v --tb=short
                   failureStrategies:
                     - onFailure:
                         errors:
@@ -168,28 +120,14 @@ pipeline:
                         action:
                           type: Ignore
 
-              - step:
-                  name: Archive Reports
-                  identifier: archive_reports
-                  type: Run
-                  spec:
-                    shell: Powershell
-                    command: |
-                      $reportDir = $env:REPORT_DIR ?? "reports"
-                      if (Test-Path $reportDir) {
-                        Write-Host "Generated reports:"
-                        Get-ChildItem $reportDir | Format-Table Name, LastWriteTime, Length
-                      } else {
-                        Write-Warning "Reports directory not found."
-                      }
-
     - stage:
-        name: Security Gate
-        identifier: security_gate
+        name: Security Scan
+        identifier: security_scan
         type: CI
         spec:
+          cloneCodebase: true
           platform:
-            os: Windows
+            os: Linux
             arch: Amd64
           runtime:
             type: Cloud
@@ -197,128 +135,163 @@ pipeline:
           execution:
             steps:
               - step:
+                  name: Install Dependencies
+                  identifier: install_deps
+                  type: Run
+                  spec:
+                    shell: Bash
+                    command: |
+                      apt-get update -qq && apt-get install -y nmap --quiet 2>/dev/null || true
+                      pip3 install -r requirements.txt --quiet
+
+              - step:
+                  name: Execute Security Scanner
+                  identifier: execute_scanner
+                  type: Run
+                  spec:
+                    shell: Bash
+                    envVariables:
+                      SCAN_TARGET: <+pipeline.variables.SCAN_TARGET>
+                      ENABLE_ZAP: <+pipeline.variables.ENABLE_ZAP>
+                      REPORT_DIR: <+pipeline.variables.REPORT_DIR>
+                      THRESHOLD_CRITICAL: <+pipeline.variables.THRESHOLD_CRITICAL>
+                      THRESHOLD_HIGH: <+pipeline.variables.THRESHOLD_HIGH>
+                      THRESHOLD_MEDIUM: <+pipeline.variables.THRESHOLD_MEDIUM>
+                    command: |
+                      ZAP_FLAG=""
+                      if [ "$ENABLE_ZAP" = "true" ]; then ZAP_FLAG="--zap"; fi
+
+                      python3 scanner/main.py \
+                        --target "$SCAN_TARGET" \
+                        --out-dir "$REPORT_DIR" \
+                        --threshold-critical "$THRESHOLD_CRITICAL" \
+                        --threshold-high "$THRESHOLD_HIGH" \
+                        --threshold-medium "$THRESHOLD_MEDIUM" \
+                        --verbose \
+                        $ZAP_FLAG || true
+
+                      echo "Scanner completed."
+
+              - step:
+                  name: Archive Reports
+                  identifier: archive_reports
+                  type: Run
+                  spec:
+                    shell: Bash
+                    command: |
+                      REPORT_DIR="${REPORT_DIR:-reports}"
+                      if [ -d "$REPORT_DIR" ]; then
+                        echo "Generated reports:"
+                        ls -lh "$REPORT_DIR"
+                        echo "--- JSON Summary ---"
+                        cat "$REPORT_DIR/scan_report_latest.json" | python3 -m json.tool | head -40
+                      else
+                        echo "WARNING: Reports directory not found."
+                      fi
+
+    - stage:
+        name: Security Gate
+        identifier: security_gate
+        type: CI
+        spec:
+          cloneCodebase: true
+          platform:
+            os: Linux
+            arch: Amd64
+          runtime:
+            type: Cloud
+            spec: {}
+          execution:
+            steps:
+              - step:
+                  name: Install Dependencies
+                  identifier: install_deps_gate
+                  type: Run
+                  spec:
+                    shell: Bash
+                    command: |
+                      pip3 install -r requirements.txt --quiet
+
+              - step:
+                  name: Run Scanner for Gate
+                  identifier: run_scanner_gate
+                  type: Run
+                  spec:
+                    shell: Bash
+                    envVariables:
+                      SCAN_TARGET: <+pipeline.variables.SCAN_TARGET>
+                      REPORT_DIR: <+pipeline.variables.REPORT_DIR>
+                      THRESHOLD_CRITICAL: <+pipeline.variables.THRESHOLD_CRITICAL>
+                      THRESHOLD_HIGH: <+pipeline.variables.THRESHOLD_HIGH>
+                      THRESHOLD_MEDIUM: <+pipeline.variables.THRESHOLD_MEDIUM>
+                    command: |
+                      apt-get update -qq && apt-get install -y nmap --quiet 2>/dev/null || true
+                      pip3 install -r requirements.txt --quiet
+
+                      python3 scanner/main.py \
+                        --target "$SCAN_TARGET" \
+                        --out-dir "$REPORT_DIR" \
+                        --threshold-critical "$THRESHOLD_CRITICAL" \
+                        --threshold-high "$THRESHOLD_HIGH" \
+                        --threshold-medium "$THRESHOLD_MEDIUM" \
+                        --verbose || true
+
+              - step:
                   name: Evaluate Security Gate
                   identifier: evaluate_gate
                   type: Run
                   spec:
-                    shell: Powershell
+                    shell: Bash
                     envVariables:
-                      REPORT_DIR:         <+pipeline.variables.REPORT_DIR>
+                      REPORT_DIR: <+pipeline.variables.REPORT_DIR>
                       THRESHOLD_CRITICAL: <+pipeline.variables.THRESHOLD_CRITICAL>
-                      THRESHOLD_HIGH:     <+pipeline.variables.THRESHOLD_HIGH>
-                      THRESHOLD_MEDIUM:   <+pipeline.variables.THRESHOLD_MEDIUM>
+                      THRESHOLD_HIGH: <+pipeline.variables.THRESHOLD_HIGH>
                     command: |
-                      $reportDir  = $env:REPORT_DIR ?? "reports"
-                      $reportFile = Join-Path $reportDir "scan_report_latest.json"
+                      REPORT_FILE="${REPORT_DIR:-reports}/scan_report_latest.json"
 
-                      if (-not (Test-Path $reportFile)) {
-                        Write-Error "Report file missing: $reportFile"
+                      if [ ! -f "$REPORT_FILE" ]; then
+                        echo "ERROR: Report file missing: $REPORT_FILE"
                         exit 1
-                      }
+                      fi
 
-                      $data        = Get-Content $reportFile | ConvertFrom-Json
-                      $evaluation  = $data.evaluation
-                      $summary     = $data.summary
+                      CRITICAL=$(python3 -c "import json; d=json.load(open('$REPORT_FILE')); print(d['summary']['severity_counts']['CRITICAL'])")
+                      HIGH=$(python3 -c "import json; d=json.load(open('$REPORT_FILE')); print(d['summary']['severity_counts']['HIGH'])")
+                      RISK_SCORE=$(python3 -c "import json; d=json.load(open('$REPORT_FILE')); print(d['summary']['risk_score'])")
+                      RISK_RATING=$(python3 -c "import json; d=json.load(open('$REPORT_FILE')); print(d['summary']['risk_rating'])")
+                      PASSED=$(python3 -c "import json; d=json.load(open('$REPORT_FILE')); print(d['evaluation']['passed'])")
 
-                      $critical    = $summary.severity_counts.CRITICAL
-                      $high        = $summary.severity_counts.HIGH
-                      $medium      = $summary.severity_counts.MEDIUM
-                      $riskScore   = $summary.risk_score
-                      $riskRating  = $summary.risk_rating
-                      $passed      = $evaluation.passed
+                      T_CRITICAL="${THRESHOLD_CRITICAL:-0}"
+                      T_HIGH="${THRESHOLD_HIGH:-2}"
 
-                      $tCritical   = [int]($env:THRESHOLD_CRITICAL ?? "0")
-                      $tHigh       = [int]($env:THRESHOLD_HIGH ?? "2")
-                      $tMedium     = [int]($env:THRESHOLD_MEDIUM ?? "10")
+                      echo "============================================"
+                      echo "  SECURITY GATE EVALUATION"
+                      echo "============================================"
+                      echo "  Risk Score  : $RISK_SCORE/100 ($RISK_RATING)"
+                      echo "  Critical    : $CRITICAL (max: $T_CRITICAL)"
+                      echo "  High        : $HIGH (max: $T_HIGH)"
+                      echo "============================================"
 
-                      Write-Host "============================================"
-                      Write-Host "  SECURITY GATE EVALUATION"
-                      Write-Host "============================================"
-                      Write-Host "  Risk Score  : $riskScore/100 ($riskRating)"
-                      Write-Host "  Critical    : $critical (max: $tCritical)"
-                      Write-Host "  High        : $high (max: $tHigh)"
-                      Write-Host "  Medium      : $medium (max: $tMedium)"
-                      Write-Host "============================================"
+                      GATE_PASSED=true
 
-                      $gatePassed = $true
+                      if [ "$CRITICAL" -gt "$T_CRITICAL" ]; then
+                        echo "  FAIL: $CRITICAL CRITICAL findings exceed threshold of $T_CRITICAL"
+                        GATE_PASSED=false
+                      fi
 
-                      if ($critical -gt $tCritical) {
-                        Write-Host "  FAIL: $critical CRITICAL findings (threshold: $tCritical)" -ForegroundColor Red
-                        $gatePassed = $false
-                      }
-                      if ($high -gt $tHigh) {
-                        Write-Host "  FAIL: $high HIGH findings (threshold: $tHigh)" -ForegroundColor Red
-                        $gatePassed = $false
-                      }
+                      if [ "$HIGH" -gt "$T_HIGH" ]; then
+                        echo "  FAIL: $HIGH HIGH findings exceed threshold of $T_HIGH"
+                        GATE_PASSED=false
+                      fi
 
-                      if ($evaluation.failure_reasons.Count -gt 0) {
-                        Write-Host ""
-                        Write-Host "  Failure reasons:"
-                        foreach ($reason in $evaluation.failure_reasons) {
-                          Write-Host "    - $reason" -ForegroundColor Red
-                        }
-                      }
-
-                      if (-not $gatePassed) {
-                        Write-Host ""
-                        Write-Host "SECURITY GATE FAILED - Blocking deployment!" -ForegroundColor Red
+                      if [ "$GATE_PASSED" = "false" ]; then
+                        echo ""
+                        echo "SECURITY GATE FAILED - Blocking deployment!"
                         exit 1
-                      }
+                      fi
 
-                      Write-Host ""
-                      Write-Host "SECURITY GATE PASSED - Deployment approved." -ForegroundColor Green
+                      echo ""
+                      echo "SECURITY GATE PASSED - Deployment approved."
                       exit 0
-
-    - stage:
-        name: Deploy to Production
-        identifier: deploy_production
-        type: Deployment
-        spec:
-          deploymentType: Kubernetes
-          service:
-            serviceRef: your_application_service
-            serviceInputs:
-              serviceDefinition:
-                type: Kubernetes
-                spec:
-                  artifacts:
-                    primary:
-                      primaryArtifactRef: primary
-                      sources:
-                        - identifier: primary
-                          type: DockerRegistry
-                          spec:
-                            tag: <+pipeline.sequenceId>
-          environment:
-            environmentRef: production
-            deployToAll: false
-            infrastructureDefinitions:
-              - identifier: your_k8s_infrastructure
-          execution:
-            steps:
-              - step:
-                  name: Rolling Deployment
-                  identifier: rolling_deploy
-                  type: K8sRollingDeploy
-                  timeout: 15m
-                  spec:
-                    skipDryRun: false
-                    pruningEnabled: false
-            rollbackSteps:
-              - step:
-                  name: Rollback
-                  identifier: rollback
-                  type: K8sRollingRollback
-                  timeout: 10m
-                  spec: {}
-        failureStrategies:
-          - onFailure:
-              errors:
-                - AllErrors
-              action:
-                type: StageRollback
-        when:
-          pipelineStatus: Success
 
   flowControl:
     barriers: []
