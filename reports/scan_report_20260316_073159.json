@@ -1,0 +1,209 @@
+{
+  "meta": {
+    "scanner": "DevSecOps Security Scanner",
+    "version": "1.0.0",
+    "target": "http://host.docker.internal:8081",
+    "timestamp": "20260316_073159",
+    "generated_at": "2026-03-16T07:31:59.194775Z"
+  },
+  "evaluation": {
+    "passed": false,
+    "exit_code": 1,
+    "risk_score": 72,
+    "risk_rating": "CRITICAL",
+    "severity_counts": {
+      "CRITICAL": 4,
+      "HIGH": 4,
+      "MEDIUM": 4,
+      "LOW": 4,
+      "INFO": 1
+    },
+    "total_findings": 17,
+    "failure_reasons": [
+      "4 CRITICAL finding(s) detected \u2014 threshold is 0 (zero tolerance)",
+      "4 HIGH finding(s) detected \u2014 threshold is 2"
+    ],
+    "thresholds_used": {
+      "CRITICAL": 0,
+      "HIGH": 2,
+      "MEDIUM": 10,
+      "LOW": 999
+    },
+    "top_recommendations": [
+      "Enable HTTPS on port 443.",
+      "Serve all content over HTTPS.",
+      "If port 5432 (PostgreSQL) is not required externally, restrict access via firewall rules.",
+      "If port 27017 (MongoDB) is not required externally, restrict access via firewall rules.",
+      "If port 445 (SMB) is not required externally, restrict access via firewall rules.",
+      "If port 135 (RPC) is not required externally, restrict access via firewall rules.",
+      "Add CSP header: Content-Security-Policy: default-src 'self'",
+      "If port 3306 (MySQL) is not required externally, restrict access via firewall rules."
+    ],
+    "evaluated_at": "2026-03-16T07:31:59.187347Z"
+  },
+  "findings": [
+    {
+      "type": "open_port",
+      "port": 445,
+      "service": "SMB",
+      "severity": "CRITICAL",
+      "detail": "SMB exposed - EternalBlue / ransomware risk",
+      "host": "192.168.65.254",
+      "timestamp": "2026-03-16T07:31:58.745916",
+      "recommendation": "If port 445 (SMB) is not required externally, restrict access via firewall rules.",
+      "owasp_category": "A05:2021 - Security Misconfiguration"
+    },
+    {
+      "type": "open_port",
+      "port": 3306,
+      "service": "MySQL",
+      "severity": "CRITICAL",
+      "detail": "MySQL database port exposed to internet",
+      "host": "192.168.65.254",
+      "timestamp": "2026-03-16T07:31:58.888784",
+      "recommendation": "If port 3306 (MySQL) is not required externally, restrict access via firewall rules.",
+      "banner": "J\u0000\u0000\u0000\n8.0.44\u0000\r\u0000\u0000\u0000U>U@ZFg\u0001\u0000\ufffd\ufffd\ufffd\u0002\u0000\ufffd\ufffd\u0015\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000]\"+MNh`j,lTh\u0000caching_sha2_password\u0000",
+      "owasp_category": "A05:2021 - Security Misconfiguration"
+    },
+    {
+      "type": "open_port",
+      "port": 5432,
+      "service": "PostgreSQL",
+      "severity": "CRITICAL",
+      "detail": "PostgreSQL database port exposed to internet",
+      "host": "192.168.65.254",
+      "timestamp": "2026-03-16T07:31:59.127200",
+      "recommendation": "If port 5432 (PostgreSQL) is not required externally, restrict access via firewall rules.",
+      "owasp_category": "A05:2021 - Security Misconfiguration"
+    },
+    {
+      "type": "open_port",
+      "port": 27017,
+      "service": "MongoDB",
+      "severity": "CRITICAL",
+      "detail": "MongoDB exposed - no auth by default",
+      "host": "192.168.65.254",
+      "timestamp": "2026-03-16T07:31:59.186584",
+      "recommendation": "If port 27017 (MongoDB) is not required externally, restrict access via firewall rules.",
+      "owasp_category": "A05:2021 - Security Misconfiguration"
+    },
+    {
+      "type": "https_port_closed",
+      "severity": "HIGH",
+      "detail": "Port 443 not open on host.docker.internal",
+      "recommendation": "Enable HTTPS on port 443."
+    },
+    {
+      "type": "missing_content_security_policy",
+      "severity": "HIGH",
+      "detail": "Missing Content-Security-Policy header - XSS attacks possible",
+      "header": "Content-Security-Policy",
+      "recommendation": "Add CSP header: Content-Security-Policy: default-src 'self'",
+      "owasp_category": "A03:2021 - Injection"
+    },
+    {
+      "type": "content_served_over_http",
+      "severity": "HIGH",
+      "detail": "Page content is being served over unencrypted HTTP: http://host.docker.internal:8081/login.php",
+      "recommendation": "Serve all content over HTTPS."
+    },
+    {
+      "type": "open_port",
+      "port": 135,
+      "service": "RPC",
+      "severity": "HIGH",
+      "detail": "Windows RPC - commonly exploited",
+      "host": "192.168.65.254",
+      "timestamp": "2026-03-16T07:31:58.709803",
+      "recommendation": "If port 135 (RPC) is not required externally, restrict access via firewall rules.",
+      "owasp_category": "A05:2021 - Security Misconfiguration"
+    },
+    {
+      "type": "missing_x_frame_options",
+      "severity": "MEDIUM",
+      "detail": "Missing X-Frame-Options header - clickjacking attacks possible",
+      "header": "X-Frame-Options",
+      "recommendation": "Add X-Frame-Options: DENY or SAMEORIGIN",
+      "owasp_category": "A05:2021 - Security Misconfiguration"
+    },
+    {
+      "type": "missing_x_content_type_options",
+      "severity": "MEDIUM",
+      "detail": "Missing X-Content-Type-Options header - MIME sniffing attacks possible",
+      "header": "X-Content-Type-Options",
+      "recommendation": "Add X-Content-Type-Options: nosniff",
+      "owasp_category": "A05:2021 - Security Misconfiguration"
+    },
+    {
+      "type": "open_port",
+      "port": 3000,
+      "service": "Dev Server",
+      "severity": "MEDIUM",
+      "detail": "Development server possibly exposed",
+      "host": "192.168.65.254",
+      "timestamp": "2026-03-16T07:31:58.876191",
+      "recommendation": "If port 3000 (Dev Server) is not required externally, restrict access via firewall rules.",
+      "banner": "HTTP/1.0 302 Found\r\nCache-Control: no-store\r\nContent-Type: text/html; charset=utf-8\r\nLocation: /login\r\nX-Content-Type-Op",
+      "owasp_category": "A05:2021 - Security Misconfiguration"
+    },
+    {
+      "type": "open_port",
+      "port": 8080,
+      "service": "HTTP Alt",
+      "severity": "MEDIUM",
+      "detail": "Alternate HTTP port - may be dev/staging",
+      "host": "192.168.65.254",
+      "timestamp": "2026-03-16T07:31:59.155322",
+      "recommendation": "If port 8080 (HTTP Alt) is not required externally, restrict access via firewall rules.",
+      "banner": "HTTP/1.1 200 OK\r\nServer: nginx/1.29.5\r\nDate: Mon, 16 Mar 2026 07:31:59 GMT\r\nContent-Type: text/html\r\nContent-Length: 644",
+      "owasp_category": "A05:2021 - Security Misconfiguration"
+    },
+    {
+      "type": "hsts_check_error",
+      "severity": "LOW",
+      "detail": "HTTPSConnectionPool(host='host.docker.internal', port=443): Max retries exceeded with url: / (Caused by NewConnectionError('<urllib3.connection.HTTPSConnection object at 0x7b1198562ed0>: Failed to establish a new connection: [Errno 111] Connection refused'))",
+      "recommendation": "Manually verify HSTS configuration."
+    },
+    {
+      "type": "missing_referrer_policy",
+      "severity": "LOW",
+      "detail": "Missing Referrer-Policy header - referrer data may leak",
+      "header": "Referrer-Policy",
+      "recommendation": "Add Referrer-Policy: strict-origin-when-cross-origin"
+    },
+    {
+      "type": "missing_permissions_policy",
+      "severity": "LOW",
+      "detail": "Missing Permissions-Policy header - browser features unrestricted",
+      "header": "Permissions-Policy",
+      "recommendation": "Add Permissions-Policy to restrict camera, microphone, geolocation etc."
+    },
+    {
+      "type": "information_disclosure",
+      "severity": "LOW",
+      "detail": "Server software disclosed via Server header: Apache/2.4.25 (Debian)",
+      "header": "Server",
+      "recommendation": "Remove or genericize the Server header (e.g., 'Server: webserver').",
+      "owasp_category": "A05:2021 - Security Misconfiguration"
+    },
+    {
+      "type": "http_port_closed",
+      "severity": "INFO",
+      "detail": "Port 80 not reachable on host.docker.internal - HTTPS-only setup may be fine.",
+      "recommendation": "Verify HTTP port 80 is intentionally closed."
+    }
+  ],
+  "summary": {
+    "total": 17,
+    "severity_counts": {
+      "CRITICAL": 4,
+      "HIGH": 4,
+      "MEDIUM": 4,
+      "LOW": 4,
+      "INFO": 1
+    },
+    "risk_score": 72,
+    "risk_rating": "CRITICAL",
+    "passed": false
+  }
+}

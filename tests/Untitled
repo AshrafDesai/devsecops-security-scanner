@@ -1,0 +1,87 @@
+import sys
+import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'scanner'))
+
+import pytest
+from unittest.mock import patch, MagicMock
+from header_check import run_header_check, _check_cors, _check_csp, _check_cookies
+
+
+class TestCheckCors:
+    def test_wildcard_origin(self):
+        headers = {"access-control-allow-origin": "*"}
+        findings = _check_cors(headers)
+        types = [f["type"] for f in findings]
+        assert "cors_wildcard" in types
+
+    def test_credentials_with_wildcard(self):
+        headers = {
+            "access-control-allow-origin": "*",
+            "access-control-allow-credentials": "true",
+        }
+        findings = _check_cors(headers)
+        types = [f["type"] for f in findings]
+        assert "cors_credentials_wildcard" in types
+
+    def test_specific_origin_clean(self):
+        headers = {"access-control-allow-origin": "https://example.com"}
+        findings = _check_cors(headers)
+        assert len(findings) == 0
+
+
+class TestCheckCsp:
+    def test_unsafe_inline(self):
+        headers = {"content-security-policy": "default-src 'self'; script-src 'unsafe-inline'"}
+        findings = _check_csp(headers)
+        assert any("unsafe_csp" == f["type"] or "weak_csp" == f["type"] for f in findings)
+
+    def test_unsafe_eval(self):
+        headers = {"content-security-policy": "script-src 'unsafe-eval'"}
+        findings = _check_csp(headers)
+        assert len(findings) > 0
+
+    def test_no_csp_header(self):
+        findings = _check_csp({})
+        assert len(findings) == 0
+
+
+class FakeResponse:
+    def __init__(self, status_code=200, url="https://example.com", headers=None, cookie_str=""):
+        self.status_code = status_code
+        self.url = url
+        self.headers = headers or {}
+        self._cookie_str = cookie_str
+
+    def __getitem__(self, key):
+        return self.headers.get(key, "")
+
+
+class TestRunHeaderCheck:
+    def _mock_response(self, headers=None, url="https://example.com"):
+        mock_resp = MagicMock()
+        mock_resp.status_code = 200
+        mock_resp.url = url
+        mock_resp.headers = MagicMock()
+        mock_resp.headers.__iter__ = MagicMock(return_value=iter(headers.items() if headers else []))
+        mock_resp.headers.items = MagicMock(return_value=(headers or {}).items())
+        mock_resp.headers.get = MagicMock(side_effect=lambda k, d="": (headers or {}).get(k, d))
+        mock_resp.headers.getlist = MagicMock(return_value=[])
+        return mock_resp
+
+    @patch("header_check.requests.get")
+    def test_missing_all_required_headers(self, mock_get):
+        mock_get.return_value = self._mock_response(headers={})
+        findings = run_header_check("https://example.com")
+        types = [f["type"] for f in findings]
+        assert "missing_content_security_policy" in types or any("missing" in t for t in types)
+
+    @patch("header_check.requests.get")
+    def test_x_powered_by_disclosure(self, mock_get):
+        mock_get.return_value = self._mock_response(
+            headers={"X-Powered-By": "PHP/7.4", "Content-Security-Policy": "default-src 'self'",
+                     "X-Frame-Options": "DENY", "X-Content-Type-Options": "nosniff",
+                     "Strict-Transport-Security": "max-age=31536000"}
+        )
+        findings = run_header_check("https://example.com")
+        types = [f["type"] for f in findings]
+        assert "information_disclosure" in types

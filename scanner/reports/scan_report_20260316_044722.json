@@ -1,0 +1,139 @@
+{
+  "meta": {
+    "scanner": "DevSecOps Security Scanner",
+    "version": "1.0.0",
+    "target": "https://www.surfatechintegratedsolutions.com",
+    "timestamp": "20260316_044722",
+    "generated_at": "2026-03-16T04:47:22.175905Z"
+  },
+  "evaluation": {
+    "passed": true,
+    "exit_code": 0,
+    "risk_score": 23,
+    "risk_rating": "MEDIUM",
+    "severity_counts": {
+      "CRITICAL": 0,
+      "HIGH": 2,
+      "MEDIUM": 4,
+      "LOW": 5,
+      "INFO": 0
+    },
+    "total_findings": 11,
+    "failure_reasons": [],
+    "thresholds_used": {
+      "CRITICAL": 0,
+      "HIGH": 2,
+      "MEDIUM": 10,
+      "LOW": 999
+    },
+    "top_recommendations": [
+      "Add CSP header: Content-Security-Policy: default-src 'self'",
+      "Restrict CORS to specific trusted origins."
+    ],
+    "evaluated_at": "2026-03-16T04:47:22.174885Z"
+  },
+  "findings": [
+    {
+      "type": "missing_content_security_policy",
+      "severity": "HIGH",
+      "detail": "Missing Content-Security-Policy header - XSS attacks possible",
+      "header": "Content-Security-Policy",
+      "recommendation": "Add CSP header: Content-Security-Policy: default-src 'self'",
+      "owasp_category": "A03:2021 - Injection"
+    },
+    {
+      "type": "cors_wildcard",
+      "severity": "HIGH",
+      "detail": "Access-Control-Allow-Origin: * allows any origin to make cross-origin requests",
+      "recommendation": "Restrict CORS to specific trusted origins.",
+      "owasp_category": "A05:2021 - Security Misconfiguration"
+    },
+    {
+      "type": "ssl_cert_expiring",
+      "severity": "MEDIUM",
+      "detail": "SSL certificate expires in 41 days",
+      "recommendation": "Schedule SSL certificate renewal."
+    },
+    {
+      "type": "missing_x_frame_options",
+      "severity": "MEDIUM",
+      "detail": "Missing X-Frame-Options header - clickjacking attacks possible",
+      "header": "X-Frame-Options",
+      "recommendation": "Add X-Frame-Options: DENY or SAMEORIGIN",
+      "owasp_category": "A05:2021 - Security Misconfiguration"
+    },
+    {
+      "type": "missing_x_content_type_options",
+      "severity": "MEDIUM",
+      "detail": "Missing X-Content-Type-Options header - MIME sniffing attacks possible",
+      "header": "X-Content-Type-Options",
+      "recommendation": "Add X-Content-Type-Options: nosniff",
+      "owasp_category": "A05:2021 - Security Misconfiguration"
+    },
+    {
+      "type": "open_port",
+      "port": 80,
+      "service": "HTTP",
+      "severity": "MEDIUM",
+      "detail": "HTTP serving unencrypted traffic",
+      "host": "64.29.17.1",
+      "timestamp": "2026-03-16T04:47:22.161866",
+      "recommendation": "If port 80 (HTTP) is not required externally, restrict access via firewall rules.",
+      "banner": "HTTP/1.0 308 Permanent Redirect\r\nContent-Type: text/plain",
+      "owasp_category": "A05:2021 - Security Misconfiguration"
+    },
+    {
+      "type": "hsts_no_subdomains",
+      "severity": "LOW",
+      "detail": "HSTS does not include subdomains",
+      "recommendation": "Add includeSubDomains to HSTS header."
+    },
+    {
+      "type": "missing_referrer_policy",
+      "severity": "LOW",
+      "detail": "Missing Referrer-Policy header - referrer data may leak",
+      "header": "Referrer-Policy",
+      "recommendation": "Add Referrer-Policy: strict-origin-when-cross-origin"
+    },
+    {
+      "type": "missing_permissions_policy",
+      "severity": "LOW",
+      "detail": "Missing Permissions-Policy header - browser features unrestricted",
+      "header": "Permissions-Policy",
+      "recommendation": "Add Permissions-Policy to restrict camera, microphone, geolocation etc."
+    },
+    {
+      "type": "information_disclosure",
+      "severity": "LOW",
+      "detail": "Server software disclosed via Server header: Vercel",
+      "header": "Server",
+      "recommendation": "Remove or genericize the Server header (e.g., 'Server: webserver').",
+      "owasp_category": "A05:2021 - Security Misconfiguration"
+    },
+    {
+      "type": "open_port",
+      "port": 443,
+      "service": "HTTPS",
+      "severity": "LOW",
+      "detail": "HTTPS open - verify certificate validity",
+      "host": "64.29.17.1",
+      "timestamp": "2026-03-16T04:47:22.171491",
+      "recommendation": "If port 443 (HTTPS) is not required externally, restrict access via firewall rules.",
+      "banner": "HTTP/1.0 308 Permanent Redirect\r\nContent-Type",
+      "owasp_category": "A05:2021 - Security Misconfiguration"
+    }
+  ],
+  "summary": {
+    "total": 11,
+    "severity_counts": {
+      "CRITICAL": 0,
+      "HIGH": 2,
+      "MEDIUM": 4,
+      "LOW": 5,
+      "INFO": 0
+    },
+    "risk_score": 23,
+    "risk_rating": "MEDIUM",
+    "passed": true
+  }
+}

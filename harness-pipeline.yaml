@@ -1,0 +1,324 @@
+pipeline:
+  name: DevSecOps Security Scanner Pipeline
+  identifier: devsecops_scanner_pipeline
+  projectIdentifier: your_project_id
+  orgIdentifier: your_org_id
+  description: Automated security scanning pipeline with deployment gate
+  tags:
+    security: devsecops
+    scanner: python
+  properties:
+    ci:
+      codebase:
+        connectorRef: github_connector
+        repoName: devsecops-security-scanner
+        build:
+          type: branch
+          spec:
+            branch: main
+
+  variables:
+    - name: SCAN_TARGET
+      type: String
+      default: "https://your-staging-app.example.com"
+      description: "URL of application to scan"
+    - name: ENABLE_ZAP
+      type: String
+      default: "false"
+      description: "Set to true to enable OWASP ZAP DAST scan"
+    - name: THRESHOLD_CRITICAL
+      type: Number
+      default: 0
+      description: "Max allowed CRITICAL findings before pipeline fails"
+    - name: THRESHOLD_HIGH
+      type: Number
+      default: 2
+      description: "Max allowed HIGH findings before pipeline fails"
+    - name: THRESHOLD_MEDIUM
+      type: Number
+      default: 10
+      description: "Max allowed MEDIUM findings (warning only)"
+    - name: REPORT_DIR
+      type: String
+      default: "reports"
+      description: "Directory to store scan reports"
+
+  stages:
+    - stage:
+        name: Checkout and Validate
+        identifier: checkout_validate
+        type: CI
+        spec:
+          cloneCodebase: true
+          platform:
+            os: Windows
+            arch: Amd64
+          runtime:
+            type: Cloud
+            spec: {}
+          execution:
+            steps:
+              - step:
+                  name: Verify Repository Structure
+                  identifier: verify_structure
+                  type: Run
+                  spec:
+                    shell: Powershell
+                    command: |
+                      Write-Host "Repository structure:"
+                      Get-ChildItem -Recurse -Depth 2
+                      if (-not (Test-Path "scanner\main.py")) {
+                        Write-Error "scanner\main.py not found"
+                        exit 1
+                      }
+                      if (-not (Test-Path "requirements.txt")) {
+                        Write-Error "requirements.txt not found"
+                        exit 1
+                      }
+                      Write-Host "Repository validation passed."
+
+    - stage:
+        name: Build and Setup
+        identifier: build_setup
+        type: CI
+        spec:
+          platform:
+            os: Windows
+            arch: Amd64
+          runtime:
+            type: Cloud
+            spec: {}
+          execution:
+            steps:
+              - step:
+                  name: Setup Python Environment
+                  identifier: setup_python
+                  type: Run
+                  spec:
+                    shell: Powershell
+                    command: |
+                      python --version
+                      pip --version
+                      Write-Host "Installing dependencies..."
+                      pip install -r requirements.txt --quiet
+                      Write-Host "Dependencies installed successfully."
+
+              - step:
+                  name: Run Unit Tests
+                  identifier: unit_tests
+                  type: Run
+                  spec:
+                    shell: Powershell
+                    command: |
+                      pip install pytest pytest-cov --quiet
+                      python -m pytest tests/ -v --tb=short --cov=scanner --cov-report=term-missing
+                    failureStrategies:
+                      - onFailure:
+                          errors:
+                            - AllErrors
+                          action:
+                            type: Ignore
+
+    - stage:
+        name: Security Scan
+        identifier: security_scan
+        type: CI
+        spec:
+          platform:
+            os: Windows
+            arch: Amd64
+          runtime:
+            type: Cloud
+            spec: {}
+          execution:
+            steps:
+              - step:
+                  name: Execute Security Scanner
+                  identifier: execute_scanner
+                  type: Run
+                  spec:
+                    shell: Powershell
+                    envVariables:
+                      SCAN_TARGET:        <+pipeline.variables.SCAN_TARGET>
+                      ENABLE_ZAP:         <+pipeline.variables.ENABLE_ZAP>
+                      REPORT_DIR:         <+pipeline.variables.REPORT_DIR>
+                      THRESHOLD_CRITICAL: <+pipeline.variables.THRESHOLD_CRITICAL>
+                      THRESHOLD_HIGH:     <+pipeline.variables.THRESHOLD_HIGH>
+                      THRESHOLD_MEDIUM:   <+pipeline.variables.THRESHOLD_MEDIUM>
+                    command: |
+                      $zapFlag = ""
+                      if ($env:ENABLE_ZAP -eq "true") { $zapFlag = "--zap" }
+
+                      python scanner\main.py `
+                        --target            $env:SCAN_TARGET `
+                        --out-dir           $env:REPORT_DIR `
+                        --threshold-critical $env:THRESHOLD_CRITICAL `
+                        --threshold-high    $env:THRESHOLD_HIGH `
+                        --threshold-medium  $env:THRESHOLD_MEDIUM `
+                        --verbose `
+                        $zapFlag
+
+                      $exitCode = $LASTEXITCODE
+                      Write-Host "Scanner exit code: $exitCode"
+                      exit 0
+                  failureStrategies:
+                    - onFailure:
+                        errors:
+                          - AllErrors
+                        action:
+                          type: Ignore
+
+              - step:
+                  name: Archive Reports
+                  identifier: archive_reports
+                  type: Run
+                  spec:
+                    shell: Powershell
+                    command: |
+                      $reportDir = $env:REPORT_DIR ?? "reports"
+                      if (Test-Path $reportDir) {
+                        Write-Host "Generated reports:"
+                        Get-ChildItem $reportDir | Format-Table Name, LastWriteTime, Length
+                      } else {
+                        Write-Warning "Reports directory not found."
+                      }
+
+    - stage:
+        name: Security Gate
+        identifier: security_gate
+        type: CI
+        spec:
+          platform:
+            os: Windows
+            arch: Amd64
+          runtime:
+            type: Cloud
+            spec: {}
+          execution:
+            steps:
+              - step:
+                  name: Evaluate Security Gate
+                  identifier: evaluate_gate
+                  type: Run
+                  spec:
+                    shell: Powershell
+                    envVariables:
+                      REPORT_DIR:         <+pipeline.variables.REPORT_DIR>
+                      THRESHOLD_CRITICAL: <+pipeline.variables.THRESHOLD_CRITICAL>
+                      THRESHOLD_HIGH:     <+pipeline.variables.THRESHOLD_HIGH>
+                      THRESHOLD_MEDIUM:   <+pipeline.variables.THRESHOLD_MEDIUM>
+                    command: |
+                      $reportDir  = $env:REPORT_DIR ?? "reports"
+                      $reportFile = Join-Path $reportDir "scan_report_latest.json"
+
+                      if (-not (Test-Path $reportFile)) {
+                        Write-Error "Report file missing: $reportFile"
+                        exit 1
+                      }
+
+                      $data        = Get-Content $reportFile | ConvertFrom-Json
+                      $evaluation  = $data.evaluation
+                      $summary     = $data.summary
+
+                      $critical    = $summary.severity_counts.CRITICAL
+                      $high        = $summary.severity_counts.HIGH
+                      $medium      = $summary.severity_counts.MEDIUM
+                      $riskScore   = $summary.risk_score
+                      $riskRating  = $summary.risk_rating
+                      $passed      = $evaluation.passed
+
+                      $tCritical   = [int]($env:THRESHOLD_CRITICAL ?? "0")
+                      $tHigh       = [int]($env:THRESHOLD_HIGH ?? "2")
+                      $tMedium     = [int]($env:THRESHOLD_MEDIUM ?? "10")
+
+                      Write-Host "============================================"
+                      Write-Host "  SECURITY GATE EVALUATION"
+                      Write-Host "============================================"
+                      Write-Host "  Risk Score  : $riskScore/100 ($riskRating)"
+                      Write-Host "  Critical    : $critical (max: $tCritical)"
+                      Write-Host "  High        : $high (max: $tHigh)"
+                      Write-Host "  Medium      : $medium (max: $tMedium)"
+                      Write-Host "============================================"
+
+                      $gatePassed = $true
+
+                      if ($critical -gt $tCritical) {
+                        Write-Host "  FAIL: $critical CRITICAL findings (threshold: $tCritical)" -ForegroundColor Red
+                        $gatePassed = $false
+                      }
+                      if ($high -gt $tHigh) {
+                        Write-Host "  FAIL: $high HIGH findings (threshold: $tHigh)" -ForegroundColor Red
+                        $gatePassed = $false
+                      }
+
+                      if ($evaluation.failure_reasons.Count -gt 0) {
+                        Write-Host ""
+                        Write-Host "  Failure reasons:"
+                        foreach ($reason in $evaluation.failure_reasons) {
+                          Write-Host "    - $reason" -ForegroundColor Red
+                        }
+                      }
+
+                      if (-not $gatePassed) {
+                        Write-Host ""
+                        Write-Host "SECURITY GATE FAILED - Blocking deployment!" -ForegroundColor Red
+                        exit 1
+                      }
+
+                      Write-Host ""
+                      Write-Host "SECURITY GATE PASSED - Deployment approved." -ForegroundColor Green
+                      exit 0
+
+    - stage:
+        name: Deploy to Production
+        identifier: deploy_production
+        type: Deployment
+        spec:
+          deploymentType: Kubernetes
+          service:
+            serviceRef: your_application_service
+            serviceInputs:
+              serviceDefinition:
+                type: Kubernetes
+                spec:
+                  artifacts:
+                    primary:
+                      primaryArtifactRef: primary
+                      sources:
+                        - identifier: primary
+                          type: DockerRegistry
+                          spec:
+                            tag: <+pipeline.sequenceId>
+          environment:
+            environmentRef: production
+            deployToAll: false
+            infrastructureDefinitions:
+              - identifier: your_k8s_infrastructure
+          execution:
+            steps:
+              - step:
+                  name: Rolling Deployment
+                  identifier: rolling_deploy
+                  type: K8sRollingDeploy
+                  timeout: 15m
+                  spec:
+                    skipDryRun: false
+                    pruningEnabled: false
+            rollbackSteps:
+              - step:
+                  name: Rollback
+                  identifier: rollback
+                  type: K8sRollingRollback
+                  timeout: 10m
+                  spec: {}
+        failureStrategies:
+          - onFailure:
+              errors:
+                - AllErrors
+              action:
+                type: StageRollback
+        when:
+          pipelineStatus: Success
+
+  flowControl:
+    barriers: []

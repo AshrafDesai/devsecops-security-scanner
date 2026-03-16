@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Security Scan Report — https://www.surfatechintegratedsolutions.com</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --c-bg: #0f1117; --c-surface: #1a1d27; --c-border: #2a2d3a;
+    --c-text: #e2e4ed; --c-muted: #8b8fa8;
+    --c-critical: #ff4757; --c-high: #ff6b35; --c-medium: #ffd32a;
+    --c-low: #2ed573; --c-info: #5352ed; --c-pass: #2ed573; --c-fail: #ff4757;
+  }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    background: var(--c-bg); color: var(--c-text); line-height: 1.6; padding: 32px; min-height: 100vh; }
+  .header { max-width: 1200px; margin: 0 auto 32px; border-bottom: 1px solid var(--c-border); padding-bottom: 24px; }
+  .header h1 { font-size: 1.8rem; font-weight: 700; letter-spacing: -0.5px; }
+  .header h1 span { color: var(--c-muted); font-weight: 400; }
+  .meta { color: var(--c-muted); font-size: 0.875rem; margin-top: 6px; }
+  .container { max-width: 1200px; margin: 0 auto; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 32px; }
+  .card { background: var(--c-surface); border: 1px solid var(--c-border); border-radius: 12px; padding: 20px; }
+  .card.status-pass { border-color: var(--c-pass); }
+  .card.status-fail { border-color: var(--c-fail); }
+  .card-label { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: var(--c-muted); margin-bottom: 8px; }
+  .card-value { font-size: 2rem; font-weight: 700; }
+  .card-value.CRITICAL { color: var(--c-critical); }
+  .card-value.HIGH     { color: var(--c-high); }
+  .card-value.MEDIUM   { color: var(--c-medium); }
+  .card-value.LOW      { color: var(--c-low); }
+  .card-value.PASS     { color: var(--c-pass); }
+  .card-value.FAIL     { color: var(--c-fail); }
+  .card-value.score    { color: var(--c-text); }
+  .section { margin-bottom: 40px; }
+  .section h2 { font-size: 1.1rem; font-weight: 600; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid var(--c-border); }
+  .alert-box { background: #1f1220; border: 1px solid var(--c-critical); border-radius: 8px; padding: 16px; margin-bottom: 16px; }
+  .alert-box p { color: #ffacb3; font-size: 0.9rem; }
+  .alert-box p + p { margin-top: 6px; }
+  table { width: 100%; border-collapse: collapse; background: var(--c-surface); border-radius: 12px; overflow: hidden; border: 1px solid var(--c-border); }
+  thead th { background: #12151f; padding: 14px 16px; text-align: left; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.8px; color: var(--c-muted); font-weight: 500; }
+  tbody td { padding: 14px 16px; border-bottom: 1px solid var(--c-border); font-size: 0.875rem; vertical-align: top; }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: rgba(255,255,255,0.02); }
+  .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; letter-spacing: 0.5px; }
+  .badge.CRITICAL { background: rgba(255,71,87,0.15);  color: var(--c-critical); border: 1px solid rgba(255,71,87,0.3); }
+  .badge.HIGH     { background: rgba(255,107,53,0.15); color: var(--c-high);     border: 1px solid rgba(255,107,53,0.3); }
+  .badge.MEDIUM   { background: rgba(255,211,42,0.12); color: var(--c-medium);   border: 1px solid rgba(255,211,42,0.25); }
+  .badge.LOW      { background: rgba(46,213,115,0.1);  color: var(--c-low);      border: 1px solid rgba(46,213,115,0.2); }
+  .badge.INFO     { background: rgba(83,82,237,0.15);  color: #a29bfe;           border: 1px solid rgba(83,82,237,0.3); }
+  .rec { font-size: 0.8rem; color: var(--c-muted); margin-top: 4px; }
+  .type-label { font-family: 'Consolas', 'Monaco', monospace; font-size: 0.8rem; color: #a29bfe; background: rgba(83,82,237,0.1); padding: 2px 6px; border-radius: 4px; }
+  .score-bar { height: 8px; background: var(--c-border); border-radius: 4px; overflow: hidden; margin-top: 8px; }
+  .score-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
+  .score-low { background: var(--c-low); }
+  .score-medium { background: var(--c-medium); }
+  .score-high { background: var(--c-high); }
+  .score-critical { background: var(--c-critical); }
+  .filter-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+  .filter-btn { padding: 6px 14px; border-radius: 20px; border: 1px solid var(--c-border); background: var(--c-surface);
+    color: var(--c-muted); font-size: 0.8rem; cursor: pointer; transition: all 0.15s; }
+  .filter-btn:hover, .filter-btn.active { border-color: #5352ed; color: #a29bfe; background: rgba(83,82,237,0.1); }
+  .owasp-tag { font-size: 0.72rem; color: var(--c-muted); background: rgba(255,255,255,0.05); padding: 2px 6px; border-radius: 3px; display: inline-block; margin-top: 4px; }
+  footer { max-width: 1200px; margin: 40px auto 0; padding-top: 20px; border-top: 1px solid var(--c-border); font-size: 0.8rem; color: var(--c-muted); }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>DevSecOps Security Scan Report <span>// https://www.surfatechintegratedsolutions.com</span></h1>
+  <div class="meta">Scan completed at 2026-03-16 05:50:16 UTC &nbsp;·&nbsp; Scanner v1.0.0 &nbsp;·&nbsp; 11 findings</div>
+</div>
+<div class="container">
+  <div class="grid">
+    <div class="card status-pass">
+      <div class="card-label">Pipeline Status</div>
+      <div class="card-value PASS">PASS</div>
+    </div>
+    <div class="card">
+      <div class="card-label">Risk Score</div>
+      <div class="card-value score">23/100</div>
+      <div class="score-bar"><div class="score-fill score-medium" style="width:23%"></div></div>
+    </div>
+    <div class="card"><div class="card-label">Critical</div><div class="card-value CRITICAL">0</div></div>
+    <div class="card"><div class="card-label">High</div><div class="card-value HIGH">2</div></div>
+    <div class="card"><div class="card-label">Medium</div><div class="card-value MEDIUM">4</div></div>
+    <div class="card"><div class="card-label">Low</div><div class="card-value LOW">5</div></div>
+  </div>
+
+  
+
+  
+  <div class="section">
+    <h2>Top Recommendations</h2>
+    <table>
+      <thead><tr><th>#</th><th>Recommendation</th></tr></thead>
+      <tbody>
+        
+        <tr><td style="width:40px;color:var(--c-muted)">1</td><td>Add CSP header: Content-Security-Policy: default-src 'self'</td></tr>
+        
+        <tr><td style="width:40px;color:var(--c-muted)">2</td><td>Restrict CORS to specific trusted origins.</td></tr>
+        
+      </tbody>
+    </table>
+  </div>
+  
+
+  <div class="section">
+    <h2>All Findings</h2>
+    <div class="filter-bar">
+      <button class="filter-btn active" onclick="filterTable('ALL')">All (11)</button>
+      <button class="filter-btn" onclick="filterTable('CRITICAL')">Critical (0)</button>
+      <button class="filter-btn" onclick="filterTable('HIGH')">High (2)</button>
+      <button class="filter-btn" onclick="filterTable('MEDIUM')">Medium (4)</button>
+      <button class="filter-btn" onclick="filterTable('LOW')">Low (5)</button>
+    </div>
+    <table id="findings-table">
+      <thead>
+        <tr>
+          <th style="width:100px">Severity</th>
+          <th style="width:180px">Type</th>
+          <th>Detail</th>
+          <th style="width:200px">OWASP</th>
+        </tr>
+      </thead>
+      <tbody>
+        
+        <tr data-severity="HIGH">
+          <td><span class="badge HIGH">HIGH</span></td>
+          <td><span class="type-label">missing_content_security_policy</span></td>
+          <td>
+            Missing Content-Security-Policy header - XSS attacks possible
+            <div class="rec">&#8594; Add CSP header: Content-Security-Policy: default-src 'self'</div>
+          </td>
+          <td><span class="owasp-tag">A03:2021 - Injection</span></td>
+        </tr>
+        
+        <tr data-severity="HIGH">
+          <td><span class="badge HIGH">HIGH</span></td>
+          <td><span class="type-label">cors_wildcard</span></td>
+          <td>
+            Access-Control-Allow-Origin: * allows any origin to make cross-origin requests
+            <div class="rec">&#8594; Restrict CORS to specific trusted origins.</div>
+          </td>
+          <td><span class="owasp-tag">A05:2021 - Security Misconfiguration</span></td>
+        </tr>
+        
+        <tr data-severity="MEDIUM">
+          <td><span class="badge MEDIUM">MEDIUM</span></td>
+          <td><span class="type-label">ssl_cert_expiring</span></td>
+          <td>
+            SSL certificate expires in 41 days
+            <div class="rec">&#8594; Schedule SSL certificate renewal.</div>
+          </td>
+          <td>-</td>
+        </tr>
+        
+        <tr data-severity="MEDIUM">
+          <td><span class="badge MEDIUM">MEDIUM</span></td>
+          <td><span class="type-label">missing_x_frame_options</span></td>
+          <td>
+            Missing X-Frame-Options header - clickjacking attacks possible
+            <div class="rec">&#8594; Add X-Frame-Options: DENY or SAMEORIGIN</div>
+          </td>
+          <td><span class="owasp-tag">A05:2021 - Security Misconfiguration</span></td>
+        </tr>
+        
+        <tr data-severity="MEDIUM">
+          <td><span class="badge MEDIUM">MEDIUM</span></td>
+          <td><span class="type-label">missing_x_content_type_options</span></td>
+          <td>
+            Missing X-Content-Type-Options header - MIME sniffing attacks possible
+            <div class="rec">&#8594; Add X-Content-Type-Options: nosniff</div>
+          </td>
+          <td><span class="owasp-tag">A05:2021 - Security Misconfiguration</span></td>
+        </tr>
+        
+        <tr data-severity="MEDIUM">
+          <td><span class="badge MEDIUM">MEDIUM</span></td>
+          <td><span class="type-label">open_port</span></td>
+          <td>
+            HTTP serving unencrypted traffic
+            <div class="rec">&#8594; If port 80 (HTTP) is not required externally, restrict access via firewall rules.</div>
+          </td>
+          <td><span class="owasp-tag">A05:2021 - Security Misconfiguration</span></td>
+        </tr>
+        
+        <tr data-severity="LOW">
+          <td><span class="badge LOW">LOW</span></td>
+          <td><span class="type-label">hsts_no_subdomains</span></td>
+          <td>
+            HSTS does not include subdomains
+            <div class="rec">&#8594; Add includeSubDomains to HSTS header.</div>
+          </td>
+          <td>-</td>
+        </tr>
+        
+        <tr data-severity="LOW">
+          <td><span class="badge LOW">LOW</span></td>
+          <td><span class="type-label">missing_referrer_policy</span></td>
+          <td>
+            Missing Referrer-Policy header - referrer data may leak
+            <div class="rec">&#8594; Add Referrer-Policy: strict-origin-when-cross-origin</div>
+          </td>
+          <td>-</td>
+        </tr>
+        
+        <tr data-severity="LOW">
+          <td><span class="badge LOW">LOW</span></td>
+          <td><span class="type-label">missing_permissions_policy</span></td>
+          <td>
+            Missing Permissions-Policy header - browser features unrestricted
+            <div class="rec">&#8594; Add Permissions-Policy to restrict camera, microphone, geolocation etc.</div>
+          </td>
+          <td>-</td>
+        </tr>
+        
+        <tr data-severity="LOW">
+          <td><span class="badge LOW">LOW</span></td>
+          <td><span class="type-label">information_disclosure</span></td>
+          <td>
+            Server software disclosed via Server header: Vercel
+            <div class="rec">&#8594; Remove or genericize the Server header (e.g., 'Server: webserver').</div>
+          </td>
+          <td><span class="owasp-tag">A05:2021 - Security Misconfiguration</span></td>
+        </tr>
+        
+        <tr data-severity="LOW">
+          <td><span class="badge LOW">LOW</span></td>
+          <td><span class="type-label">open_port</span></td>
+          <td>
+            HTTPS open - verify certificate validity
+            <div class="rec">&#8594; If port 443 (HTTPS) is not required externally, restrict access via firewall rules.</div>
+          </td>
+          <td><span class="owasp-tag">A05:2021 - Security Misconfiguration</span></td>
+        </tr>
+        
+      </tbody>
+    </table>
+  </div>
+</div>
+<footer>Generated by DevSecOps Security Scanner &nbsp;·&nbsp; 2026-03-16 05:50:16 UTC</footer>
+<script>
+function filterTable(sev) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  document.querySelectorAll('#findings-table tbody tr').forEach(row => {
+    row.style.display = (sev === 'ALL' || row.dataset.severity === sev) ? '' : 'none';
+  });
+}
+</script>
+</body>
+</html>

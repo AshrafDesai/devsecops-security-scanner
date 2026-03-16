@@ -1,0 +1,160 @@
+{
+  "meta": {
+    "scanner": "DevSecOps Security Scanner",
+    "version": "1.0.0",
+    "target": "http://host.docker.internal:8081",
+    "timestamp": "20260316_072712",
+    "generated_at": "2026-03-16T07:27:12.886803Z"
+  },
+  "evaluation": {
+    "passed": false,
+    "exit_code": 1,
+    "risk_score": 57,
+    "risk_rating": "CRITICAL",
+    "severity_counts": {
+      "CRITICAL": 4,
+      "HIGH": 2,
+      "MEDIUM": 3,
+      "LOW": 1,
+      "INFO": 1
+    },
+    "total_findings": 11,
+    "failure_reasons": [
+      "4 CRITICAL finding(s) detected \u2014 threshold is 0 (zero tolerance)"
+    ],
+    "thresholds_used": {
+      "CRITICAL": 0,
+      "HIGH": 2,
+      "MEDIUM": 10,
+      "LOW": 999
+    },
+    "top_recommendations": [
+      "If port 5432 (PostgreSQL) is not required externally, restrict access via firewall rules.",
+      "If port 27017 (MongoDB) is not required externally, restrict access via firewall rules.",
+      "If port 135 (RPC) is not required externally, restrict access via firewall rules.",
+      "Enable HTTPS on port 443.",
+      "If port 445 (SMB) is not required externally, restrict access via firewall rules.",
+      "If port 3306 (MySQL) is not required externally, restrict access via firewall rules."
+    ],
+    "evaluated_at": "2026-03-16T07:27:12.874660Z"
+  },
+  "findings": [
+    {
+      "type": "open_port",
+      "port": 445,
+      "service": "SMB",
+      "severity": "CRITICAL",
+      "detail": "SMB exposed - EternalBlue / ransomware risk",
+      "host": "192.168.65.254",
+      "timestamp": "2026-03-16T07:27:10.528308",
+      "recommendation": "If port 445 (SMB) is not required externally, restrict access via firewall rules.",
+      "owasp_category": "A05:2021 - Security Misconfiguration"
+    },
+    {
+      "type": "open_port",
+      "port": 3306,
+      "service": "MySQL",
+      "severity": "CRITICAL",
+      "detail": "MySQL database port exposed to internet",
+      "host": "192.168.65.254",
+      "timestamp": "2026-03-16T07:27:12.506966",
+      "recommendation": "If port 3306 (MySQL) is not required externally, restrict access via firewall rules.",
+      "banner": "J\u0000\u0000\u0000\n8.0.44\u0000\u000b\u0000\u0000\u0000NEY|2^Z'\u0000\ufffd\ufffd\ufffd\u0002\u0000\ufffd\ufffd\u0015\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000Mj\u0001>\u0001\u0014\u001a)x/x\\\u0000caching_sha2_password\u0000!\u0000\u0000\u0001\ufffd\ufffd\u0004#08S01Got packets out of order",
+      "owasp_category": "A05:2021 - Security Misconfiguration"
+    },
+    {
+      "type": "open_port",
+      "port": 5432,
+      "service": "PostgreSQL",
+      "severity": "CRITICAL",
+      "detail": "PostgreSQL database port exposed to internet",
+      "host": "192.168.65.254",
+      "timestamp": "2026-03-16T07:27:12.714081",
+      "recommendation": "If port 5432 (PostgreSQL) is not required externally, restrict access via firewall rules.",
+      "owasp_category": "A05:2021 - Security Misconfiguration"
+    },
+    {
+      "type": "open_port",
+      "port": 27017,
+      "service": "MongoDB",
+      "severity": "CRITICAL",
+      "detail": "MongoDB exposed - no auth by default",
+      "host": "192.168.65.254",
+      "timestamp": "2026-03-16T07:27:12.873762",
+      "recommendation": "If port 27017 (MongoDB) is not required externally, restrict access via firewall rules.",
+      "owasp_category": "A05:2021 - Security Misconfiguration"
+    },
+    {
+      "type": "https_port_closed",
+      "severity": "HIGH",
+      "detail": "Port 443 not open on host.docker.internal",
+      "recommendation": "Enable HTTPS on port 443."
+    },
+    {
+      "type": "open_port",
+      "port": 135,
+      "service": "RPC",
+      "severity": "HIGH",
+      "detail": "Windows RPC - commonly exploited",
+      "host": "192.168.65.254",
+      "timestamp": "2026-03-16T07:27:10.457018",
+      "recommendation": "If port 135 (RPC) is not required externally, restrict access via firewall rules.",
+      "owasp_category": "A05:2021 - Security Misconfiguration"
+    },
+    {
+      "type": "connection_error",
+      "severity": "MEDIUM",
+      "detail": "Could not connect to target: HTTPConnectionPool(host='host.docker.internal', port=8081): Max retries exceeded with url: / (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x752be70bcd50>: Failed to esta",
+      "recommendation": "Verify target URL is reachable."
+    },
+    {
+      "type": "open_port",
+      "port": 3000,
+      "service": "Dev Server",
+      "severity": "MEDIUM",
+      "detail": "Development server possibly exposed",
+      "host": "192.168.65.254",
+      "timestamp": "2026-03-16T07:27:12.473115",
+      "recommendation": "If port 3000 (Dev Server) is not required externally, restrict access via firewall rules.",
+      "banner": "HTTP/1.0 302 Found\r\nCache-Control: no-store\r\nContent-Type: text/html; charset=utf-8\r\nLocation: /login\r\nX-Content-Type-Op",
+      "owasp_category": "A05:2021 - Security Misconfiguration"
+    },
+    {
+      "type": "open_port",
+      "port": 8080,
+      "service": "HTTP Alt",
+      "severity": "MEDIUM",
+      "detail": "Alternate HTTP port - may be dev/staging",
+      "host": "192.168.65.254",
+      "timestamp": "2026-03-16T07:27:12.837975",
+      "recommendation": "If port 8080 (HTTP Alt) is not required externally, restrict access via firewall rules.",
+      "banner": "HTTP/1.1 200 OK\r\nServer: nginx/1.29.5\r\nDate: Mon, 16 Mar 2026 07:27:12 GMT\r\nContent-Type: text/html\r\nContent-Length: 644",
+      "owasp_category": "A05:2021 - Security Misconfiguration"
+    },
+    {
+      "type": "hsts_check_error",
+      "severity": "LOW",
+      "detail": "HTTPSConnectionPool(host='host.docker.internal', port=443): Max retries exceeded with url: / (Caused by NewConnectionError('<urllib3.connection.HTTPSConnection object at 0x752be70cb1d0>: Failed to establish a new connection: [Errno 111] Connection refused'))",
+      "recommendation": "Manually verify HSTS configuration."
+    },
+    {
+      "type": "http_port_closed",
+      "severity": "INFO",
+      "detail": "Port 80 not reachable on host.docker.internal - HTTPS-only setup may be fine.",
+      "recommendation": "Verify HTTP port 80 is intentionally closed."
+    }
+  ],
+  "summary": {
+    "total": 11,
+    "severity_counts": {
+      "CRITICAL": 4,
+      "HIGH": 2,
+      "MEDIUM": 3,
+      "LOW": 1,
+      "INFO": 1
+    },
+    "risk_score": 57,
+    "risk_rating": "CRITICAL",
+    "passed": false
+  }
+}
