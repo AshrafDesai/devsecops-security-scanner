@@ -1,4 +1,4 @@
-name: DevSecOps Security Scanner Pipeline
+name: DevSecOps Security Scanner Pipelines
 
 on:
   push:
